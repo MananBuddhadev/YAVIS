@@ -4,6 +4,18 @@
 # In conjunction with Tcl version 8.6
 #    Apr 27, 2017 08:42:00 PM
 
+"""
+YAVIS_GUI_support.py
+
+CSCI-729 YAVIS-My Personal Assistant
+
+This program is the implementation of the functionalies of YAVIS and start the GUI.
+
+author: Manan Chetan Buddhadev (mcb5345@rit.edu)
+author: Nihar Vanjara (niv1676@rit.edu)
+author: Atir Petkar (ap8185@rit.edu))
+"""
+
 import datetime
 import os
 import time
@@ -14,7 +26,6 @@ from os.path import join, dirname
 import httplib2
 import pyaudio
 from apiclient import discovery
-from clint.textui import colored
 from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
@@ -53,14 +64,15 @@ APPLICATION_NAME = 'Google Calendar API Python Quickstart'
 
 
 def get_credentials():
-    """Gets valid user credentials from storage.
+    """
+    Gets valid user credentials from storage.
 
     If nothing has been stored, or if the stored credentials are invalid,
     the OAuth2 flow is completed to obtain the new credentials.
-
-    Returns:
-        Credentials, the obtained credential.
+    
+    :return: Credentials, the obtained credential
     """
+
     home_dir = os.path.expanduser('~')
     credential_dir = os.path.join(home_dir, '.credentials')
     if not os.path.exists(credential_dir):
@@ -82,7 +94,7 @@ def get_credentials():
 
 
 #########################
-# message
+#       message         #
 #########################
 
 conversation = ConversationV1(
@@ -95,39 +107,51 @@ text_to_speech = TextToSpeechV1(
     password="aRypNyPFGeb1",
     x_watson_learning_opt_out=True)
 
-# Current System Time
-
-
 numOfEvents = 5
 
 
+## TAPA HUA BC!
 def voice(fileName):
-    chunk = 1024
-    # open a wav format music
-    f = wave.open(fileName, "rb")
-    # instantiate PyAudio
-    p = pyaudio.PyAudio()
-    # open stream
-    stream = p.open(format=p.get_format_from_width(f.getsampwidth()),
-                    channels=f.getnchannels(),
-                    rate=f.getframerate(),
-                    output=True)
+    """
+    Generates the voice for text to speech from the file provided
+    Referred from: http://www.programcreek.com/python/example/52624/pyaudio.PyAudio (Example 4)
+    
+    :param fileName: the file to be played
+    :return: None
+    """
 
-    # read data (based on the chunk size)
-    data = f.readframes(chunk)
+    data_chunk = 1024
 
-    # play stream (looping from beginning of file to the end)
-    while len(data) != 0:
-        # writing to the stream is what *actually* plays the sound.
-        stream.write(data)
-        data = f.readframes(chunk)
+    file = wave.open(fileName, "rb")
 
-    # cleanup stuff.
-    stream.close()
-    p.terminate()
+    pa = pyaudio.PyAudio()
+
+    audio_stream = pa.open(format=pa.get_format_from_width(file.getsampwidth()),
+                           channels=file.getnchannels(),
+                           rate=file.getframerate(),
+                           output=True)
+
+    read_data = file.readframes(data_chunk)
+
+    while len(read_data) != 0:
+        audio_stream.write(read_data)
+        read_data = file.readframes(data_chunk)
+
+    audio_stream.close()
+    pa.terminate()
 
 
 def calender_google_add(date, time, event, service):
+    """
+    Adds an event to the Google Calendar of a user
+    
+    :param date: The date of the event
+    :param time: The time of the event
+    :param event: The title of the event
+    :param service: 
+    :return: None
+    """
+
     print("Date: ", date)
     print("Time: ", time)
     print("Event: ", event)
@@ -165,6 +189,13 @@ def calender_google_add(date, time, event, service):
 
 
 def textToSpeech(response):
+    """
+    Creates the file to be sent to the voice method to be played
+    
+    :param response: The text input received
+    :return: None
+    """
+
     with open(join(dirname(__file__), 'output.wav'),
               'wb') as audio_file:
         audio_file.write(
@@ -176,6 +207,13 @@ def textToSpeech(response):
 
 
 def calendar_all(response):
+    """
+    Check if the input contains date, time or event-title
+    
+    :param response: The input received
+    :return: The provided date, time and title
+    """
+
     title = None
     for entity in response['entities']:
 
@@ -195,7 +233,14 @@ def calendar_all(response):
     return date, time, title
 
 
-def calendar_search(response):
+def search_input_parser(response):
+    """
+    Parse the input provided by the user can decide the timeframe to search in
+    
+    :param response: The input received 
+    :return: Date, Time, Date Interval and the Time Interval
+    """
+
     now = datetime.now()
     d = str(now)[:10]
     t = "00:00:00"
@@ -218,13 +263,25 @@ def calendar_search(response):
 
 
 def calendar_google_search(date, t, timeInterval, dayInterval, service):
+    """
+    
+    :param date: The date
+    :param t: The time 
+    :param timeInterval: The time interval 
+    :param dayInterval: The day interval
+    :param service: The service to search the Google Calendar event
+    :return: Response containing the events
+    """
 
     response = ""
 
     if dayInterval == None and timeInterval == None:
 
         eventsResult = service.events().list(
-            calendarId='primary', timeMin=date + "T" + t + "-04:00",timeMax=str(datetime.strptime(date+'T'+t, "%Y-%m-%dT%H:%M:%S") + timedelta(hours=24)).replace(' ','T') + "-04:00", singleEvents=True,
+            calendarId='primary', timeMin=date + "T" + t + "-04:00",
+            timeMax=str(datetime.strptime(date + 'T' + t, "%Y-%m-%dT%H:%M:%S") + timedelta(hours=24)).replace(' ',
+                                                                                                              'T') + "-04:00",
+            singleEvents=True,
             orderBy='startTime').execute()
         events = eventsResult.get('items', [])
         if not events:
@@ -232,11 +289,12 @@ def calendar_google_search(date, t, timeInterval, dayInterval, service):
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
             ts = time.strptime(start[:19], "%Y-%m-%dT%H:%M:%S")
-            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + "you have" + "\"" + event['summary'] + "\"\n"
+            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + " you have " + "\"" + event[
+                'summary'] + "\"\n"
 
-    #show me tomorrow morning events
+    # Show me tomorrow morning's events
     elif dayInterval == "morning":
-        time_max = date+"T12:00:00-04:00"
+        time_max = date + "T12:00:00-04:00"
         eventsResult = service.events().list(
             calendarId='primary', timeMin=date + "T" + "07:00:00-04:00",
             timeMax=time_max,
@@ -248,11 +306,12 @@ def calendar_google_search(date, t, timeInterval, dayInterval, service):
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
             ts = time.strptime(start[:19], "%Y-%m-%dT%H:%M:%S")
-            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + "you have" + "\"" + event['summary'] + "\"\n"
+            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + " you have " + "\"" + event[
+                'summary'] + "\"\n"
 
-    #show me tomorrow afternoon events
+    # show me tomorrow afternoon's events
     elif dayInterval == "afternoon":
-        time_max = date+"T18:00:00-04:00"
+        time_max = date + "T18:00:00-04:00"
         eventsResult = service.events().list(
             calendarId='primary', timeMin=date + "T" + "12:00:00-04:00",
             timeMax=time_max,
@@ -265,12 +324,13 @@ def calendar_google_search(date, t, timeInterval, dayInterval, service):
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
             ts = time.strptime(start[:19], "%Y-%m-%dT%H:%M:%S")
-            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + "you have" + "\"" + event['summary'] + "\"\n"
+            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + " you have " + "\"" + event[
+                'summary'] + "\"\n"
 
 
-    #show me tomorrow evening events
+    # Show me tomorrow evening events
     elif dayInterval == "evening":
-        time_max = date+"T23:59:59-04:00"
+        time_max = date + "T23:59:59-04:00"
         eventsResult = service.events().list(
             calendarId='primary', timeMin=date + "T" + "18:00:00-04:00",
             timeMax=time_max,
@@ -283,10 +343,11 @@ def calendar_google_search(date, t, timeInterval, dayInterval, service):
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
             ts = time.strptime(start[:19], "%Y-%m-%dT%H:%M:%S")
-            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + "you have" + "\"" + event['summary'] + "\"\n"
+            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + " you have" + "\"" + event[
+                'summary'] + "\"\n"
 
 
-    #show me events after 5 pm --> dayinterval = none and time_period=after
+    # show me events after 5 pm --> dayinterval = none and time_period=after
     elif timeInterval == 'after':
         time_max = date + "T23:59:59-04:00"
         eventsResult = service.events().list(
@@ -301,11 +362,12 @@ def calendar_google_search(date, t, timeInterval, dayInterval, service):
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
             ts = time.strptime(start[:19], "%Y-%m-%dT%H:%M:%S")
-            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + "you have" + "\"" + event['summary'] + "\"\n"
+            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + " you have " + "\"" + event[
+                'summary'] + "\"\n"
 
 
     elif timeInterval == 'at':
-        #time_max = date + "T23:59:59-04:00"
+        # time_max = date + "T23:59:59-04:00"
         eventsResult = service.events().list(
             calendarId='primary', timeMin=date + "T" + t + "-04:00",
             maxResults=1,
@@ -318,14 +380,15 @@ def calendar_google_search(date, t, timeInterval, dayInterval, service):
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
             ts = time.strptime(start[:19], "%Y-%m-%dT%H:%M:%S")
-            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + "you have" + "\"" + event['summary'] + "\"\n"
+            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + " you have " + "\"" + event[
+                'summary'] + "\"\n"
 
 
     # show me events after 5 pm --> dayinterval = none and time_period=after
     elif timeInterval == 'before':
         time_min = date + "T00:00:00-04:00"
         eventsResult = service.events().list(
-            calendarId='primary', timeMin = time_min,
+            calendarId='primary', timeMin=time_min,
             timeMax=date + "T" + t + "-04:00",
             singleEvents=True,
             orderBy='startTime').execute()
@@ -336,11 +399,19 @@ def calendar_google_search(date, t, timeInterval, dayInterval, service):
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
             ts = time.strptime(start[:19], "%Y-%m-%dT%H:%M:%S")
-            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + "you have" + "\"" + event['summary'] + "\"\n"
+            response = response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + " you have " + "\"" + event[
+                'summary'] + "\"\n"
     return response
 
 
 def calendar_next(response):
+    """
+    Parse the input to retrieve results for upcoming n events
+    
+    :param response: The input received 
+    :return: The date, the time and the number of events needed
+    """
+
     numOfEvents = 10
     now = datetime.now()
     date = str(now)[:10]
@@ -355,9 +426,19 @@ def calendar_next(response):
 
 
 def calendar_google_next(date, t, numOfEvents, service):
+    """
+    Retrieve results for upcoming n events
+    
+    :param date: The date of the event
+    :param t: The time after which the events occur
+    :param numOfEvents: The number of events
+    :param service: The service to fetch results from the Google Calendar API
+    :return: The n number of events
+    """
+
     calendar_response = ''
     eventsResult = service.events().list(
-        calendarId='primary', timeMin=date+"T" +t + "-04:00", maxResults=numOfEvents, singleEvents=True,
+        calendarId='primary', timeMin=date + "T" + t + "-04:00", maxResults=numOfEvents, singleEvents=True,
         orderBy='startTime').execute()
     events = eventsResult.get('items', [])
     if not events:
@@ -366,12 +447,22 @@ def calendar_google_next(date, t, numOfEvents, service):
     for event in events:
         start = event['start'].get('dateTime', event['start'].get('date'))
         ts = time.strptime(start[:19], "%Y-%m-%dT%H:%M:%S")
-        calendar_response = calendar_response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + "you have" + "\"" + event['summary'] + "\""
+        calendar_response = calendar_response + "on " + time.strftime("%d %b,%Y at %I:%M %p,", ts) + "you have" + "\"" + \
+                            event['summary'] + "\""
         calendar_response = calendar_response + "\n"
 
     return calendar_response
 
+
 def send_to_watson(data, context1):
+    """
+    The method to communicate with Watson
+    
+    :param data: The user input
+    :param context1: The context of the conversation to be preserved
+    :return: The response to print on screen and the current context
+    """
+
     credentials = get_credentials()
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('calendar', 'v3', http=http)
@@ -382,7 +473,7 @@ def send_to_watson(data, context1):
 
     # replace with your own workspace_id
 
-    # workspace_id = '2bf137c9-65f4-4d2a-91e5-a55a4d4eea66'
+    # workspace_id = '2bf137c9-65f4-4d2a-91e5-a55a4d4eea66' #Old workspace
 
     workspace_id = '554bed6b-fbc9-4987-a234-619480675f8c'
 
@@ -399,14 +490,13 @@ def send_to_watson(data, context1):
         # print(json.dumps(response, indent=2))
 
         # Display to GUI
-        print(response['output']['text'][0])
+        # print(response['output']['text'][0])
         watson_response = response['output']['text'][0]
 
         if (response['output']['nodes_visited'][0] == "Calendar_Entry_add_time"
             or response['output']['nodes_visited'][0] == "Calendar_Entry_add_date_time"
             or response['output']['nodes_visited'][0] == "Calendar_Entry_add_date"):
             response['context']['add'] = True
-
 
         # now = datetime.now()
         # response['context']['date'] = str(now)[:10]
@@ -419,7 +509,6 @@ def send_to_watson(data, context1):
                 response['context']['time'] = entity['value']
             if entity['entity'] == 'events':
                 response['context']['event'] = response['input']['text']
-
 
         if response['output']['nodes_visited'][0] == "Calendar_Entry_add_All":
             date, time, title = calendar_all(response)
@@ -449,7 +538,7 @@ def send_to_watson(data, context1):
 
         ##### Search
         if response['output']['nodes_visited'][0] == "Calendar_search_events":
-            d, t, timeInterval, dayInterval = calendar_search(response)
+            d, t, timeInterval, dayInterval = search_input_parser(response)
             response['context']['date'] = d
             response['context']['time'] = t
             response['context']['time_interval'] = timeInterval
@@ -487,36 +576,38 @@ def send_to_watson(data, context1):
             response['context']['time_interval'] = None
             response['context']['day_interval'] = None
             response['context']['search'] = False
-        print(watson_response + "\n" + " " +calendar_response +"***************")
+        print(watson_response + "\n" + " " + calendar_response + "***************")
         textToSpeech(watson_response)
         if calendar_response:
             textToSpeech(calendar_response)
 
-        response_to_send=watson_response + "\n" + calendar_response
-        print("Response to Send: ")
+        response_to_send = watson_response + "\n" + calendar_response
         context1 = response['context']
         calendar_response = ""
         return response_to_send, context1
 
 
 def Button_Click(event=None):
-    # print('YAVIS_GUI_support.Button Click')
+    """
+    The event handler for button click
+    
+    :param event: The event handler for Return key press 
+    :return: None
+    """
+
     global yavis_active
     global context
     global new_context
 
     data = gui_object.Entry1.get()
-    print(data)
 
-    # print(yavis_active)
     if data is not "":
         if yavis_active is False:
-            print(colored.red("Me: "))
-            gui_object.scr49.insert(INSERT, colored.red('Me: ') + data + "\n")
+            gui_object.scr49.insert(INSERT, 'Me: ' + data + "\n")
             gui_object.scr49.insert(INSERT, "\n")
             yavis_active = True
             response, new_context = send_to_watson(data, context)
-            print(response)
+            # print(response)
             gui_object.scr49.insert(INSERT, "YAVIS: " + response + "\n")
             gui_object.scr49.insert(INSERT, "\n")
         else:
@@ -528,14 +619,22 @@ def Button_Click(event=None):
             gui_object.scr49.insert(INSERT, "\n")
     gui_object.Entry1.delete(0, 'end')
 
-    if str(data).__contains__("Bye"):
+    if str(data).__contains__("Bye") or str(data).__contains__("bye"):
         exit(0)
-    # gui_object.scr49.insert(INSERT,"\n")
-
     sys.stdout.flush()
 
 
 def init(top, gui, *args, **kwargs):
+    """
+    The method to initialize the GUI.
+    
+    :param top: 
+    :param gui: 
+    :param args: 
+    :param kwargs: 
+    :return: 
+    """
+
     global w, top_level, root, gui_object, yavis_active, context, new_context
     w = gui
     top_level = top
@@ -558,7 +657,11 @@ def init(top, gui, *args, **kwargs):
 
 
 def destroy_window():
-    # Function which closes the window.
+    """
+    The function to close the window
+    
+    """
+
     global top_level
     top_level.destroy()
     top_level = None
